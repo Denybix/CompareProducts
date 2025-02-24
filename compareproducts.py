@@ -1,18 +1,12 @@
+import psycopg2
 import os
 from flask import Flask, request
 
 app = Flask(__name__)
 
-import mysql.connector
-
-mydb = mysql.connector.connect(
-    host=os.getenv("DB_HOST"),
-    user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD"),
-    database=os.getenv("DB_NAME"),
-)
-
-mycursor = mydb.cursor(dictionary=True)
+DATABASE_URL = os.getenv("DATABASE_URL")  # Render provides this
+conn = psycopg2.connect(DATABASE_URL)
+cursor = conn.cursor()
 
 box_styles = """
 <style>
