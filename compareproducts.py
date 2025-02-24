@@ -1,110 +1,252 @@
-import psycopg2
-import os
-import traceback
-from flask import Flask, request
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Comparison</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .results {
+            display: flex;
+            flex-wrap: wrap; 
+            justify-content: space-around; 
+            list-style-type: none;
+            margin: 10px; 
+            padding: 0;
+        }
 
-app = Flask(__name__)
+        .productbox {
+            border: 1px solid #000;
+            padding: 10px;
+            margin-bottom: 20px;
+            width: 250px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.3s ease-in-out;
+            box-sizing: border-box;
+            text-align: center;
+        }
 
-# Database connection
-DATABASE_URL = os.getenv("DATABASE_URL")
-conn = psycopg2.connect(DATABASE_URL)
-cursor = conn.cursor()
+        .productbox:hover {
+            box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.6);
+            background-color: rgb(234, 238, 174);
+        }
 
-# HTML & CSS styles (unchanged from your code)
-box_styles = """
-<style>
-    body { margin: 0; padding: 0; }
-    .results { display: flex; flex-wrap: wrap; justify-content: space-around; list-style-type: none; margin:10px; padding: 0; }
-    .productbox { border: 1px solid #000; padding: 10px; margin-bottom: 20px; width: 250px; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2); transition: box-shadow 0.3s ease-in-out; box-sizing: border-box; }
-    .productbox:hover { box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.6); background-color: rgb(234, 238, 174); }
-    .productbox img { max-width: 100%; height: auto; border-radius: 5px; }
-    .form-container { max-width: 500px; margin: 13px auto; padding: 20px; background-color: #f9f9f9; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); }
-    .compare-btn { background-color: #4caf50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
-    .compare-btn:hover { background-color: #45a049; }
-</style>
-"""
+        .productbox img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
 
-@app.route('/', methods=['GET', 'POST'])
-def product_comparison():
-    if request.method == 'POST':
-        try:
-            category = request.form['category']
-            min_price = float(request.form['min_price'])
-            max_price = float(request.form['max_price'])
-            comparison_results = compare_products(category, min_price, max_price)
-            return format_results(comparison_results)
-        except Exception as e:
-            print("Error:", e)
-            traceback.print_exc()
-            return "<h1>Internal Server Error</h1>", 500
-    
-    form = """
-    <header><center><h1>Product Comparison Page</h1></center></header>
-    <center>
+        header {
+            background-color: #f55c47;
+            color: white;
+            text-align: center;
+            padding: 20px 0;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        #navigation {
+            background-color: #80a3d1;
+            padding: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+        }
+
+        #menu {
+            display: block;
+            cursor: pointer;
+            float: left;
+        }
+
+        .bar {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            margin: 4px 0;
+            transition: 0.4s;
+        }
+
+        .icon .bar:nth-child(1) {
+            transform: rotate(-45deg) translate(-5px, 6px);
+        }
+
+        .icon .bar:nth-child(2) {
+            opacity: 0;
+        }
+
+        .icon .bar:nth-child(3) {
+            transform: rotate(45deg) translate(-5px, -6px);
+        }
+
+        .nav {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            transition: max-height 0.2s ease-out;
+            max-height: 0;
+            float: left;
+        }
+
+        .nav li {
+            float: left;
+        }
+
+        .nav li a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+
+        .nav li a:hover {
+            background-color: #0056b3;
+        }
+
+        .change {
+            max-height: 200px;
+        }
+
+        a {
+            text-decoration: none; 
+            color: inherit; 
+        }
+
+        .form-container {
+            max-width: 500px;
+            margin: 13px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .comparison-form label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .comparison-form select,
+        .comparison-form input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .compare-btn {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .compare-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Product Comparison</h1>
+    </header>
+
+    <nav id="navigation">
+        <div id="menu" onclick="toggleMenu()">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
+        <ul class="nav" id="nav-links">
+            <li><a href="#">Home</a></li>
+            <li><a href="#">Products</a></li>
+            <li><a href="#">Compare</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+    </nav>
+
     <div class="form-container">
-        <form action="/" method="POST">
-            <label for="category">Category:</label>
-            <select id="category" name="category">
-                <option value="Table">Table</option>
-                <option value="Sofa">Sofa</option>
-            </select><br><br>
-            <label for="min_price">Minimum Price:</label>
-            <input type="number" id="min_price" name="min_price" required><br><br>
-            <label for="max_price">Maximum Price:</label>
-            <input type="number" id="max_price" name="max_price" required><br><br>
-            <button type="submit" class="compare-btn">Compare</button>
+        <form class="comparison-form">
+            <label for="product1">Select Product 1:</label>
+            <select id="product1">
+                <option value="Product A">Product A</option>
+                <option value="Product B">Product B</option>
+                <option value="Product C">Product C</option>
+            </select>
+
+            <label for="product2">Select Product 2:</label>
+            <select id="product2">
+                <option value="Product A">Product A</option>
+                <option value="Product B">Product B</option>
+                <option value="Product C">Product C</option>
+            </select>
+
+            <button type="button" class="compare-btn" onclick="compareProducts()">Compare</button>
         </form>
     </div>
-    </center>
-    """
-    return f"{box_styles} {form}"
 
-def compare_products(category, min_price, max_price):
-    try:
-        cursor.execute(
-            """
-            SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage 
-            FROM products p 
-            JOIN variations v ON p.productId = v.ProductID 
-            JOIN images i ON p.productId = i.ImageID 
-            WHERE p.productcategory = %s AND v.Price BETWEEN %s AND %s
-            """,
-            (category, min_price, max_price)
-        )
-        products = cursor.fetchall()
+    <ul class="results" id="product-list">
+        <!-- Products will be added here dynamically -->
+    </ul>
 
-        return [
-            {"Name": prod[0], "Rating": prod[1], "Type": prod[2], "Price": prod[3], "Color": prod[4], "Image": prod[5]}
-            for prod in products
-        ]
-    except Exception as e:
-        print("Database error:", e)
-        traceback.print_exc()
-        return []
+    <script>
+        function toggleMenu() {
+            var navLinks = document.getElementById("nav-links");
+            navLinks.classList.toggle("change");
+        }
 
-def format_results(results):
-    if not results:
-        return "<h1>No results found.</h1>"
+        // Product data
+        const products = [
+            { name: "Product A", price: "$100", img: "https://via.placeholder.com/150" },
+            { name: "Product B", price: "$150", img: "https://via.placeholder.com/150" },
+            { name: "Product C", price: "$200", img: "https://via.placeholder.com/150" }
+        ];
 
-    formatted_results = """
-        <header><center><h1>Product Comparison Results</h1></center></header>
-        <div class="results">
-    """
-    for product in results:
-        formatted_results += f"""
-        <div class="productbox">
-            <img src="{product['Image']}" alt="{product['Name']}">
-            <div class="product-details">
-                <h2>{product['Name']}</h2>
-                <p>Rating: {product['Rating']}</p>
-                <p>Type: {product['Type']}</p>
-                <p>Price: {product['Price']}</p>
-                <p>Color: {product['Color']}</p>
-            </div>
-        </div>
-        """
-    formatted_results += "</div>"
-    return f"{box_styles} {formatted_results}"
+        // Display products dynamically
+        function displayProducts() {
+            const productList = document.getElementById("product-list");
+            products.forEach(product => {
+                let li = document.createElement("li");
+                li.className = "productbox";
+                li.innerHTML = `
+                    <img src="${product.img}" alt="${product.name}">
+                    <h3>${product.name}</h3>
+                    <p>Price: ${product.price}</p>
+                `;
+                productList.appendChild(li);
+            });
+        }
 
-if __name__ == '__main__':
-    app.run(debug=True)
+        function compareProducts() {
+            let product1 = document.getElementById("product1").value;
+            let product2 = document.getElementById("product2").value;
+            if (product1 === product2) {
+                alert("Please select two different products to compare.");
+            } else {
+                alert(`Comparing ${product1} and ${product2}`);
+            }
+        }
+
+        // Load products on page load
+        window.onload = displayProducts;
+    </script>
+
+</body>
+</html>
