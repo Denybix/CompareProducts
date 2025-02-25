@@ -12,7 +12,172 @@ def get_db_connection():
 
 box_styles = """
 <style>
-/* Your CSS styles here */
+  body
+        {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .results 
+        {
+            display: flex;
+            flex-wrap: wrap; 
+            justify-content: space-around; 
+            list-style-type: none;
+            margin:10px; 
+            padding: 0;
+        }
+
+        .productbox 
+        {
+            border: 1px solid #000;
+            padding: 10px;
+            margin-bottom: 20px;
+            width: 250px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.3s ease-in-out;
+            box-sizing: border-box;
+        }
+
+        .productbox:hover 
+        {
+            box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.6);
+            background-color: rgb(234, 238, 174);
+        }
+
+        .productbox img 
+        {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+
+        header {
+            background-color: #f55c47;
+            color: white;
+            text-align: center;
+            padding: 20px 0;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+        }
+        h1 {
+            margin: 0;
+        }
+        #navigation {
+            background-color: #80a3d1;
+            padding: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+        }
+        #menu {
+            display: block;
+            cursor: pointer;
+            float: left;
+        }
+        .bar {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            margin: 4px 0;
+            transition: 0.4s;
+        }
+        .icon .bar:nth-child(1) {
+            transform: rotate(-45deg) translate(-5px, 6px);
+        }
+        .icon .bar:nth-child(2) {
+            opacity: 0;
+        }
+        .icon .bar:nth-child(3) {
+            transform: rotate(45deg) translate(-5px, -6px);
+        }
+        .nav {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            transition: max-height 0.2s ease-out;
+            max-height: 0;
+            float: left;
+        }
+        .nav li {
+            float: left;
+        }
+        .nav li a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        .nav li a:hover {
+            background-color: #0056b3;
+        }
+        .change {
+            max-height: 200px;
+        }
+
+        a {
+            text-decoration: none; 
+            color: inherit; 
+        }
+
+        .form-container 
+        {
+            max-width: 500px;
+            margin: 13px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .comparison-form label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .comparison-form select,
+        .comparison-form input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .compare-btn {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .compare-btn:hover {
+            background-color: #45a049;
+        }
+
+        .error-message {
+            color: #f44336;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border: 1px solid #f44336;
+        }
+        
+        .debug-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
 </style>
 """
 
