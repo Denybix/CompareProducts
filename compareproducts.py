@@ -4,9 +4,11 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
+# Database connection
 DATABASE_URL = os.getenv("DATABASE_URL")  # Render provides this
-conn = psycopg2.connect(DATABASE_URL)
-cursor = conn.cursor()
+
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
 
 box_styles = """
 <style>
@@ -163,11 +165,14 @@ box_styles = """
 @app.route('/', methods=['GET', 'POST'])
 def product_comparison():
     if request.method == 'POST':
-        category = request.form['category']
-        min_price = float(request.form['min_price'])
-        max_price = float(request.form['max_price'])
-        comparison_results = compare_products(category, min_price, max_price)
-        return format_results(comparison_results)
+        try:
+            category = request.form['category']
+            min_price = float(request.form['min_price'])
+            max_price = float(request.form['max_price'])
+            comparison_results = compare_products(category, min_price, max_price)
+            return format_results(comparison_results)
+        except Exception as e:
+            return f"<h1>Error: {str(e)}</h1>"
 
     form = """
     <header>
@@ -221,33 +226,47 @@ def product_comparison():
     return f"{box_styles} {js_script} {form}"
 
 def compare_products(category, min_price, max_price):
-    sql_query = (
-        "SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage "
-        "FROM products p "
-        "JOIN variations v ON p.productId = v.ProductID "
-        "JOIN images i ON p.productId = i.ImageID "
-        "WHERE p.productcategory = %s AND v.Price BETWEEN %s AND %s"
-    )
-    mycursor.execute(sql_query, (category, min_price, max_price))
-    products = mycursor.fetchall()
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        sql_query = (
+            "SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage "
+            "FROM products p "
+            "JOIN variations v ON p.productId = v.ProductID "
+            "JOIN images i ON p.productId = i.ImageID "
+            "WHERE p.productcategory = %s AND v.Price BETWEEN %s AND %s"
+        )
+        cursor.execute(sql_query, (category, min_price, max_price))
+        products = cursor.fetchall()
 
-    comparison_results = [
-        {
-            "Name": prod["productName"],
-            "Rating": prod["productRating"],
-            "Type": prod["Types"],
-            "Price": prod["Price"],
-            "Image": prod["productImage"],
-            "Colour": prod["Color"],
-        }
-        for prod in products
-    ]
+        # Create a list of dictionaries from the tuple results
+        comparison_results = []
+        for prod in products:
+            comparison_results.append({
+                "Name": prod[0],  # productName
+                "Rating": prod[1], # productRating
+                "Type": prod[2],   # Types
+                "Price": prod[3],  # Price
+                "Colour": prod[4], # Color
+                "Image": prod[5]   # productImage
+            })
 
-    return comparison_results
+        return comparison_results
+    except Exception as e:
+        print(f"Database error: {e}")
+        raise
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 def format_results(results):
     if not results:
-        return "<h1>No results found.</h1>"
+        return f"{box_styles}<h1>No results found.</h1>"
 
     formatted_results = """
         <header>
@@ -283,25 +302,24 @@ def format_results(results):
                 <p>Rating: {product['Rating']}</p>
                 <p>Type: {product['Type']}</p>
                 <p>Price: {product['Price']}</p>
-                <p>Colour:{product['Colour']}</p>
+                <p>Colour: {product['Colour']}</p>
             </div>
         </div>
         """
 
-        js_script = """
-        <script>
-            function onClickMenu() {
-                document.getElementById("menu").classList.toggle("icon");
-                document.getElementById("nav").classList.toggle("change");
-            }
-        </script>
-        """
         html_content += productbox
     html_content += '</div>'
+    
+    js_script = """
+    <script>
+        function onClickMenu() {
+            document.getElementById("menu").classList.toggle("icon");
+            document.getElementById("nav").classList.toggle("change");
+        }
+    </script>
+    """
     
     return f"{box_styles} {js_script} {formatted_results} {html_content}"
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
-see this is the code okay, here the database is there, the sql statements to fetch the products, this code produced internal server error when the compare button was clicked, the results weren't shown. NOw you just need to fix that error keeping everyhting same, the html,css all embedded in one file as it is, just fix the error and generate the complete code
+    app.run(debug=True, host='0.0.0.0')
