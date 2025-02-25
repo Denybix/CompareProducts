@@ -1,6 +1,6 @@
 import psycopg2
 import os
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request
 
 app = Flask(__name__)
 
@@ -9,89 +9,6 @@ DATABASE_URL = os.getenv("DATABASE_URL")  # Render provides this
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
-
-def initialize_database():
-    """Create database tables if they don't exist"""
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Create products table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS products (
-                productId SERIAL PRIMARY KEY,
-                productName VARCHAR(255) NOT NULL,
-                productCategory VARCHAR(255) NOT NULL,
-                productRating DECIMAL(3,1) DEFAULT 0
-            )
-        ''')
-        
-        # Create variations table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS variations (
-                VariationID SERIAL PRIMARY KEY,
-                ProductID INT REFERENCES products(productId),
-                Types VARCHAR(255),
-                Price DECIMAL(10,2),
-                Color VARCHAR(50)
-            )
-        ''')
-        
-        # Create images table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS images (
-                ImageID INT REFERENCES products(productId),
-                productImage VARCHAR(255)
-            )
-        ''')
-        
-        # Insert sample data if tables are empty
-        cursor.execute("SELECT COUNT(*) FROM products")
-        if cursor.fetchone()[0] == 0:
-            # Insert sample products
-            cursor.execute('''
-                INSERT INTO products (productName, productCategory, productRating)
-                VALUES 
-                ('Modern Dining Table', 'Table', 4.5),
-                ('Coffee Table', 'Table', 4.2),
-                ('Sectional Sofa', 'Sofa', 4.7),
-                ('Convertible Sofa', 'Sofa', 4.0)
-            ''')
-            
-            # Insert variations
-            cursor.execute('''
-                INSERT INTO variations (ProductID, Types, Price, Color)
-                VALUES 
-                (1, 'Dining', 499.99, 'Oak'),
-                (1, 'Dining', 549.99, 'Walnut'),
-                (2, 'Coffee', 199.99, 'Black'),
-                (2, 'Coffee', 249.99, 'White'),
-                (3, 'L-Shape', 899.99, 'Grey'),
-                (3, 'L-Shape', 999.99, 'Blue'),
-                (4, 'Sleeper', 699.99, 'Beige'),
-                (4, 'Sleeper', 749.99, 'Brown')
-            ''')
-            
-            # Insert images
-            cursor.execute('''
-                INSERT INTO images (ImageID, productImage)
-                VALUES 
-                (1, 'https://placehold.co/600x400?text=Dining+Table'),
-                (2, 'https://placehold.co/600x400?text=Coffee+Table'),
-                (3, 'https://placehold.co/600x400?text=Sectional+Sofa'),
-                (4, 'https://placehold.co/600x400?text=Convertible+Sofa')
-            ''')
-        
-        conn.commit()
-        print("Database initialized successfully")
-    except Exception as e:
-        print(f"Error initializing database: {e}")
-        if conn:
-            conn.rollback()
-    finally:
-        if conn:
-            conn.close()
 
 box_styles = """
 <style>
@@ -252,13 +169,14 @@ box_styles = """
             border: 1px solid #f44336;
         }
         
-        .success-message {
-            color: #4CAF50;
-            background-color: #E8F5E9;
-            padding: 10px;
+        .debug-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
             border-radius: 5px;
+            padding: 15px;
             margin: 20px 0;
-            border: 1px solid #4CAF50;
+            font-family: monospace;
+            white-space: pre-wrap;
         }
         </style>
 """
@@ -268,8 +186,8 @@ def product_comparison():
     if request.method == 'POST':
         try:
             category = request.form['category']
-            min_price = float(request.form['min_price'])
-            max_price = float(request.form['max_price'])
+            min_price = float(request.form['min_price']) if request.form['min_price'] else 0
+            max_price = float(request.form['max_price']) if request.form['max_price'] else 1000
             comparison_results = compare_products(category, min_price, max_price)
             return format_results(comparison_results)
         except Exception as e:
@@ -342,28 +260,72 @@ def get_base_page():
 
     return f"{header} {navigation} {form} {js_script}"
 
-@app.route('/setup-database', methods=['GET'])
-def setup_database():
-    """Route to initialize database with tables and sample data"""
+@app.route('/debug', methods=['GET'])
+def debug_info():
+    """Route to get database structure information for debugging"""
+    conn = None
+    cursor = None
+    result = ""
     try:
-        initialize_database()
-        success_message = """
-        <div class="success-message">
-            <h3>Success</h3>
-            <p>Database initialized successfully with sample data!</p>
-            <p><a href="/" style="color: #4CAF50; text-decoration: underline;">Return to Home</a></p>
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get table list
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        """)
+        tables = cursor.fetchall()
+        
+        result += "Available tables:\n"
+        for table in tables:
+            table_name = table[0]
+            result += f"- {table_name}\n"
+            
+            # Get columns for each table
+            cursor.execute(f"""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = '{table_name}'
+            """)
+            columns = cursor.fetchall()
+            
+            result += "  Columns:\n"
+            for col in columns:
+                result += f"  - {col[0]} ({col[1]})\n"
+            
+            # Get count of records
+            cursor.execute(f"SELECT COUNT(*) FROM \"{table_name}\"")
+            count = cursor.fetchone()[0]
+            result += f"  Records count: {count}\n\n"
+            
+            # Get sample data
+            if count > 0:
+                cursor.execute(f"SELECT * FROM \"{table_name}\" LIMIT 1")
+                sample = cursor.fetchone()
+                result += f"  Sample data: {sample}\n\n"
+                
+        debug_html = f"""
+        <div class="debug-info">
+            <h3>Database Structure Information</h3>
+            <pre>{result}</pre>
         </div>
         """
-        return f"{box_styles} {get_base_page()} {success_message}"
+        return f"{box_styles} {get_base_page()} {debug_html}"
     except Exception as e:
         error_message = f"""
         <div class="error-message">
-            <h3>Error</h3>
-            <p>Could not initialize database: {str(e)}</p>
-            <p><a href="/" style="color: #f44336; text-decoration: underline;">Return to Home</a></p>
+            <h3>Debug Error</h3>
+            <p>{str(e)}</p>
         </div>
         """
         return f"{box_styles} {get_base_page()} {error_message}"
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 def compare_products(category, min_price, max_price):
     conn = None
@@ -372,14 +334,31 @@ def compare_products(category, min_price, max_price):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        sql_query = (
-            "SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage "
-            "FROM products p "
-            "JOIN variations v ON p.productId = v.ProductID "
-            "JOIN images i ON p.productId = i.ImageID "
-            "WHERE p.productcategory = %s AND v.Price BETWEEN %s AND %s"
-        )
-        cursor.execute(sql_query, (category, min_price, max_price))
+        # Query with proper quoting for PostgreSQL
+        sql_query = """
+            SELECT p."productName", p."productRating", v."Types", v."Price", v."Color", i."productImage" 
+            FROM "products" p 
+            JOIN "variations" v ON p."productId" = v."ProductID" 
+            JOIN "images" i ON p."productId" = i."ImageID" 
+            WHERE p."productcategory" = %s AND v."Price" BETWEEN %s AND %s
+        """
+        
+        # Alternative query if the above doesn't work
+        alt_sql_query = """
+            SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage 
+            FROM products p 
+            JOIN variations v ON p.productId = v.ProductID 
+            JOIN images i ON p.productId = i.ImageID 
+            WHERE LOWER(p.productcategory) = LOWER(%s) AND v.Price BETWEEN %s AND %s
+        """
+        
+        try:
+            cursor.execute(sql_query, (category, min_price, max_price))
+        except Exception as query_error:
+            # If the first query fails, try the alternative
+            print(f"First query failed: {query_error}")
+            cursor.execute(alt_sql_query, (category, min_price, max_price))
+            
         products = cursor.fetchall()
 
         # Create a list of dictionaries from the tuple results
@@ -410,6 +389,7 @@ def format_results(results):
         <div class="error-message">
             <h3>No Results Found</h3>
             <p>No products match your criteria. Please try different filter settings.</p>
+            <p>Try checking the <a href="/debug" style="color: blue; text-decoration: underline;">debug page</a> to see what's in your database.</p>
         </div>
         """
         return f"{box_styles} {get_base_page()} {no_results}"
@@ -467,6 +447,4 @@ def format_results(results):
     return f"{box_styles} {js_script} {formatted_results} {html_content}"
 
 if __name__ == '__main__':
-    # Initialize database on startup
-    initialize_database()
     app.run(debug=True, host='0.0.0.0')
