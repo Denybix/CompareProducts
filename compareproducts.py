@@ -4,14 +4,10 @@ app = Flask(__name__)
 
 import mysql.connector
 
-mydb = mysql.connector.connect(
-    host="sql212.infinityfree.com",
-    user="if0_38368634",
-    password="9HxJ8GTNGoUjRQ ",
-    database="if0_38368634_registeration",
-)
+DATABASE_URL = os.getenv("DATABASE_URL") 
 
-mycursor = mydb.cursor(dictionary=True)
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
 
 box_styles = """
 <style>
