@@ -263,7 +263,7 @@ def compare_products(category, min_price, max_price):
         sql_query = """
         SELECT "p.productname", "p.productrating", "v.types", "v.price", "v.color", "i.productimage"
         FROM "_products" p
-        JOIN "_variations" v ON "p.productid" = "v.Productid"
+        JOIN "_variations" v ON "p.productid" = "v.productid"
         JOIN "_images" i ON "p.productid" = "i.imageid"
         WHERE "p.productcategory" = %s AND "v.price" BETWEEN %s AND %s
         """
