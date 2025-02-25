@@ -261,11 +261,11 @@ def compare_products(category, min_price, max_price):
         cursor = conn.cursor()
 
         sql_query = """
-        SELECT p."_productName", p."_productRating", v."_Types", v."_Price", v."_Color", i."_productImage"
+        SELECT p."productName", p."productRating", v."Types", v."Price", v."Color", i."productImage"
         FROM "_products" p
-        JOIN "_variations" v ON p."_productId" = v."_ProductID"
-        JOIN "_images" i ON p."_productId" = i."_ImageID"
-        WHERE p."_productcategory" = %s AND v."_Price" BETWEEN %s AND %s
+        JOIN "_variations" v ON p."productId" = v."ProductID"
+        JOIN "_images" i ON p."productId" = i."ImageID"
+        WHERE p."productcategory" = %s AND v."Price" BETWEEN %s AND %s
         """
         
         cursor.execute(sql_query, (category, min_price, max_price))
