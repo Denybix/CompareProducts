@@ -79,6 +79,15 @@ box_styles = """
             margin: 4px 0;
             transition: 0.4s;
         }
+        .icon .bar:nth-child(1) {
+            transform: rotate(-45deg) translate(-5px, 6px);
+        }
+        .icon .bar:nth-child(2) {
+            opacity: 0;
+        }
+        .icon .bar:nth-child(3) {
+            transform: rotate(45deg) translate(-5px, -6px);
+        }
         .nav {
             list-style-type: none;
             margin: 0;
@@ -148,7 +157,7 @@ box_styles = """
         .compare-btn:hover {
             background-color: #45a049;
         }
-</style>
+        </style>
 """
 
 @app.route('/', methods=['GET', 'POST'])
@@ -167,6 +176,19 @@ def product_comparison():
         </center>
     </header>
 
+    <div id="navigation">
+        <div id="menu" onclick="onClickMenu()">
+            <div id="bar1" class="bar"></div>
+            <div id="bar2" class="bar"></div>
+            <div id="bar3" class="bar"></div>
+        </div>
+        <ul class="nav" id ="nav">
+            <li><a href="http://localhost/Php_program/project.php">Home</a></li> 
+            <li><a href="#">Services</a></li> 
+            <li><a href="#">About Us</a></li> 
+            <li><a href="#">Contact Us</a></li>    
+        </ul>
+    </div>
     <center>
      <div class="form-container">
         <form action="/" method="POST" class="comparison-form">
@@ -187,28 +209,36 @@ def product_comparison():
     </div>
     </center>
     """
+    js_script = """
+    <script>
+        function onClickMenu() {
+            document.getElementById("menu").classList.toggle("icon");
+            document.getElementById("nav").classList.toggle("change");
+        }
+    </script>
+    """
 
-    return f"{box_styles} {form}"
+    return f"{box_styles} {js_script} {form}"
 
 def compare_products(category, min_price, max_price):
-    sql_query = """
-        SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage
-        FROM products p
-        JOIN variations v ON p.productId = v.ProductID
-        JOIN images i ON p.productId = i.ImageID
-        WHERE p.productcategory = %s AND v.Price BETWEEN %s AND %s
-    """
-    cursor.execute(sql_query, (category, min_price, max_price))
-    products = cursor.fetchall()
+    sql_query = (
+        "SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage "
+        "FROM products p "
+        "JOIN variations v ON p.productId = v.ProductID "
+        "JOIN images i ON p.productId = i.ImageID "
+        "WHERE p.productcategory = %s AND v.Price BETWEEN %s AND %s"
+    )
+    mycursor.execute(sql_query, (category, min_price, max_price))
+    products = mycursor.fetchall()
 
     comparison_results = [
         {
-            "Name": prod[0],
-            "Rating": prod[1],
-            "Type": prod[2],
-            "Price": prod[3],
-            "Colour": prod[4],
-            "Image": prod[5],
+            "Name": prod["productName"],
+            "Rating": prod["productRating"],
+            "Type": prod["Types"],
+            "Price": prod["Price"],
+            "Image": prod["productImage"],
+            "Colour": prod["Color"],
         }
         for prod in products
     ]
@@ -219,9 +249,33 @@ def format_results(results):
     if not results:
         return "<h1>No results found.</h1>"
 
+    formatted_results = """
+        <header>
+            <center>
+                <h1>Product Comparison Results</h1>
+            </center>
+        </header>
+        
+    
+        <div id="navigation">
+                <div id="menu" onclick="onClickMenu()">
+                    <div id="bar1" class="bar"></div>
+                    <div id="bar2" class="bar"></div>
+                    <div id="bar3" class="bar"></div>
+                </div>
+                <ul class="nav" id ="nav">
+                    <li><a href="http://localhost/Php_program/project.php">Home</a></li> 
+                    <li><a href="#">Services</a></li> 
+                    <li><a href="#">About Us</a></li> 
+                    <li><a href="#">Contact Us</a></li> 
+                    <li><a href="http://localhost:5000">Product Comparison</a></li>    
+                </ul>
+            </div>
+    """
     html_content = '<div class="results">'
     for product in results:
         productbox = f"""
+        
         <div class="productbox">
             <img src="{product['Image']}" alt="{product['Name']}">
             <div class="product-details">
@@ -233,10 +287,21 @@ def format_results(results):
             </div>
         </div>
         """
+
+        js_script = """
+        <script>
+            function onClickMenu() {
+                document.getElementById("menu").classList.toggle("icon");
+                document.getElementById("nav").classList.toggle("change");
+            }
+        </script>
+        """
         html_content += productbox
     html_content += '</div>'
-
-    return f"{box_styles} {html_content}"
+    
+    return f"{box_styles} {js_script} {formatted_results} {html_content}"
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+see this is the code okay, here the database is there, the sql statements to fetch the products, this code produced internal server error when the compare button was clicked, the results weren't shown. NOw you just need to fix that error keeping everyhting same, the html,css all embedded in one file as it is, just fix the error and generate the complete code
