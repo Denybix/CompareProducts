@@ -5,10 +5,15 @@ from flask import Flask, request
 app = Flask(__name__)
 
 # Database connection
-DATABASE_URL = os.getenv("DATABASE_URL")  # Render provides this
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    except psycopg2.Error as e:
+        print(f"Error connecting to the database: {e}")
+        return None
 
 box_styles = """
 <style>
@@ -202,7 +207,6 @@ def product_comparison():
     return f"{box_styles} {get_base_page()}"
 
 def get_base_page():
-    """Return the base page HTML with navigation and form"""
     header = """
     <header>
         <center>
@@ -243,208 +247,4 @@ def get_base_page():
             <label for="max_price">Maximum Price:</label>
             <input type="number" id="max_price" name="max_price" value="1000"><br><br>
             
-            <button type="submit" class="compare-btn">Compare</button>
-        </form>
-    </div>
-    </center>
-    """
-    
-    js_script = """
-    <script>
-        function onClickMenu() {
-            document.getElementById("menu").classList.toggle("icon");
-            document.getElementById("nav").classList.toggle("change");
-        }
-    </script>
-    """
-
-    return f"{header} {navigation} {form} {js_script}"
-
-@app.route('/debug', methods=['GET'])
-def debug_info():
-    """Route to get database structure information for debugging"""
-    conn = None
-    cursor = None
-    result = ""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get table list
-        cursor.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-        """)
-        tables = cursor.fetchall()
-        
-        result += "Available tables:\n"
-        for table in tables:
-            table_name = table[0]
-            result += f"- {table_name}\n"
-            
-            # Get columns for each table
-            cursor.execute(f"""
-                SELECT column_name, data_type 
-                FROM information_schema.columns 
-                WHERE table_name = '{table_name}'
-            """)
-            columns = cursor.fetchall()
-            
-            result += "  Columns:\n"
-            for col in columns:
-                result += f"  - {col[0]} ({col[1]})\n"
-            
-            # Get count of records
-            cursor.execute(f"SELECT COUNT(*) FROM \"{table_name}\"")
-            count = cursor.fetchone()[0]
-            result += f"  Records count: {count}\n\n"
-            
-            # Get sample data
-            if count > 0:
-                cursor.execute(f"SELECT * FROM \"{table_name}\" LIMIT 1")
-                sample = cursor.fetchone()
-                result += f"  Sample data: {sample}\n\n"
-                
-        debug_html = f"""
-        <div class="debug-info">
-            <h3>Database Structure Information</h3>
-            <pre>{result}</pre>
-        </div>
-        """
-        return f"{box_styles} {get_base_page()} {debug_html}"
-    except Exception as e:
-        error_message = f"""
-        <div class="error-message">
-            <h3>Debug Error</h3>
-            <p>{str(e)}</p>
-        </div>
-        """
-        return f"{box_styles} {get_base_page()} {error_message}"
-    finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
-
-def compare_products(category, min_price, max_price):
-    conn = None
-    cursor = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Query with proper quoting for PostgreSQL
-        sql_query = """
-            SELECT p."productName", p."productRating", v."Types", v."Price", v."Color", i."productImage" 
-            FROM "products" p 
-            JOIN "variations" v ON p."productId" = v."ProductID" 
-            JOIN "images" i ON p."productId" = i."ImageID" 
-            WHERE p."productcategory" = %s AND v."Price" BETWEEN %s AND %s
-        """
-        
-        # Alternative query if the above doesn't work
-        alt_sql_query = """
-            SELECT p.productName, p.productRating, v.Types, v.Price, v.Color, i.productImage 
-            FROM products p 
-            JOIN variations v ON p.productId = v.ProductID 
-            JOIN images i ON p.productId = i.ImageID 
-            WHERE LOWER(p.productcategory) = LOWER(%s) AND v.Price BETWEEN %s AND %s
-        """
-        
-        try:
-            cursor.execute(sql_query, (category, min_price, max_price))
-        except Exception as query_error:
-            # If the first query fails, try the alternative
-            print(f"First query failed: {query_error}")
-            cursor.execute(alt_sql_query, (category, min_price, max_price))
-            
-        products = cursor.fetchall()
-
-        # Create a list of dictionaries from the tuple results
-        comparison_results = []
-        for prod in products:
-            comparison_results.append({
-                "Name": prod[0],  # productName
-                "Rating": prod[1], # productRating
-                "Type": prod[2],   # Types
-                "Price": prod[3],  # Price
-                "Colour": prod[4], # Color
-                "Image": prod[5]   # productImage
-            })
-
-        return comparison_results
-    except Exception as e:
-        print(f"Database error: {e}")
-        raise
-    finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
-
-def format_results(results):
-    if not results:
-        no_results = """
-        <div class="error-message">
-            <h3>No Results Found</h3>
-            <p>No products match your criteria. Please try different filter settings.</p>
-            <p>Try checking the <a href="/debug" style="color: blue; text-decoration: underline;">debug page</a> to see what's in your database.</p>
-        </div>
-        """
-        return f"{box_styles} {get_base_page()} {no_results}"
-
-    formatted_results = """
-        <header>
-            <center>
-                <h1>Product Comparison Results</h1>
-            </center>
-        </header>
-        
-    
-        <div id="navigation">
-                <div id="menu" onclick="onClickMenu()">
-                    <div id="bar1" class="bar"></div>
-                    <div id="bar2" class="bar"></div>
-                    <div id="bar3" class="bar"></div>
-                </div>
-                <ul class="nav" id ="nav">
-                    <li><a href="/">Home</a></li> 
-                    <li><a href="#">Services</a></li> 
-                    <li><a href="#">About Us</a></li> 
-                    <li><a href="#">Contact Us</a></li> 
-                </ul>
-            </div>
-    """
-    html_content = '<div class="results">'
-    for product in results:
-        productbox = f"""
-        
-        <div class="productbox">
-            <img src="{product['Image']}" alt="{product['Name']}">
-            <div class="product-details">
-                <h2>{product['Name']}</h2>
-                <p>Rating: {product['Rating']}</p>
-                <p>Type: {product['Type']}</p>
-                <p>Price: ${product['Price']}</p>
-                <p>Colour: {product['Colour']}</p>
-            </div>
-        </div>
-        """
-
-        html_content += productbox
-    html_content += '</div>'
-    
-    js_script = """
-    <script>
-        function onClickMenu() {
-            document.getElementById("menu").classList.toggle("icon");
-            document.getElementById("nav").classList.toggle("change");
-        }
-    </script>
-    """
-    
-    return f"{box_styles} {js_script} {formatted_results} {html_content}"
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+            <button type="submit" class
