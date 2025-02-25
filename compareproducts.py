@@ -1,6 +1,6 @@
 import psycopg2
 import os
-from flask import Flask, request
+from flask import Flask, request, redirect, url_for
 
 app = Flask(__name__)
 
@@ -9,6 +9,89 @@ DATABASE_URL = os.getenv("DATABASE_URL")  # Render provides this
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
+
+def initialize_database():
+    """Create database tables if they don't exist"""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Create products table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS products (
+                productId SERIAL PRIMARY KEY,
+                productName VARCHAR(255) NOT NULL,
+                productCategory VARCHAR(255) NOT NULL,
+                productRating DECIMAL(3,1) DEFAULT 0
+            )
+        ''')
+        
+        # Create variations table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS variations (
+                VariationID SERIAL PRIMARY KEY,
+                ProductID INT REFERENCES products(productId),
+                Types VARCHAR(255),
+                Price DECIMAL(10,2),
+                Color VARCHAR(50)
+            )
+        ''')
+        
+        # Create images table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS images (
+                ImageID INT REFERENCES products(productId),
+                productImage VARCHAR(255)
+            )
+        ''')
+        
+        # Insert sample data if tables are empty
+        cursor.execute("SELECT COUNT(*) FROM products")
+        if cursor.fetchone()[0] == 0:
+            # Insert sample products
+            cursor.execute('''
+                INSERT INTO products (productName, productCategory, productRating)
+                VALUES 
+                ('Modern Dining Table', 'Table', 4.5),
+                ('Coffee Table', 'Table', 4.2),
+                ('Sectional Sofa', 'Sofa', 4.7),
+                ('Convertible Sofa', 'Sofa', 4.0)
+            ''')
+            
+            # Insert variations
+            cursor.execute('''
+                INSERT INTO variations (ProductID, Types, Price, Color)
+                VALUES 
+                (1, 'Dining', 499.99, 'Oak'),
+                (1, 'Dining', 549.99, 'Walnut'),
+                (2, 'Coffee', 199.99, 'Black'),
+                (2, 'Coffee', 249.99, 'White'),
+                (3, 'L-Shape', 899.99, 'Grey'),
+                (3, 'L-Shape', 999.99, 'Blue'),
+                (4, 'Sleeper', 699.99, 'Beige'),
+                (4, 'Sleeper', 749.99, 'Brown')
+            ''')
+            
+            # Insert images
+            cursor.execute('''
+                INSERT INTO images (ImageID, productImage)
+                VALUES 
+                (1, 'https://placehold.co/600x400?text=Dining+Table'),
+                (2, 'https://placehold.co/600x400?text=Coffee+Table'),
+                (3, 'https://placehold.co/600x400?text=Sectional+Sofa'),
+                (4, 'https://placehold.co/600x400?text=Convertible+Sofa')
+            ''')
+        
+        conn.commit()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
 
 box_styles = """
 <style>
@@ -159,6 +242,24 @@ box_styles = """
         .compare-btn:hover {
             background-color: #45a049;
         }
+
+        .error-message {
+            color: #f44336;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border: 1px solid #f44336;
+        }
+        
+        .success-message {
+            color: #4CAF50;
+            background-color: #E8F5E9;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border: 1px solid #4CAF50;
+        }
         </style>
 """
 
@@ -172,15 +273,27 @@ def product_comparison():
             comparison_results = compare_products(category, min_price, max_price)
             return format_results(comparison_results)
         except Exception as e:
-            return f"<h1>Error: {str(e)}</h1>"
+            error_message = f"""
+            <div class="error-message">
+                <h3>Error</h3>
+                <p>{str(e)}</p>
+            </div>
+            """
+            return f"{box_styles} {get_base_page()} {error_message}"
 
-    form = """
+    return f"{box_styles} {get_base_page()}"
+
+def get_base_page():
+    """Return the base page HTML with navigation and form"""
+    header = """
     <header>
         <center>
             <h1>Product Comparison Page</h1>
         </center>
     </header>
-
+    """
+    
+    navigation = """
     <div id="navigation">
         <div id="menu" onclick="onClickMenu()">
             <div id="bar1" class="bar"></div>
@@ -188,12 +301,15 @@ def product_comparison():
             <div id="bar3" class="bar"></div>
         </div>
         <ul class="nav" id ="nav">
-            <li><a href="http://localhost/Php_program/project.php">Home</a></li> 
+            <li><a href="/">Home</a></li> 
             <li><a href="#">Services</a></li> 
             <li><a href="#">About Us</a></li> 
             <li><a href="#">Contact Us</a></li>    
         </ul>
     </div>
+    """
+    
+    form = """
     <center>
      <div class="form-container">
         <form action="/" method="POST" class="comparison-form">
@@ -204,16 +320,17 @@ def product_comparison():
             </select><br><br>
             
             <label for="min_price">Minimum Price:</label>
-            <input type="number" id="min_price" name="min_price"><br><br>
+            <input type="number" id="min_price" name="min_price" value="0"><br><br>
             
             <label for="max_price">Maximum Price:</label>
-            <input type="number" id="max_price" name="max_price"><br><br>
+            <input type="number" id="max_price" name="max_price" value="1000"><br><br>
             
             <button type="submit" class="compare-btn">Compare</button>
         </form>
     </div>
     </center>
     """
+    
     js_script = """
     <script>
         function onClickMenu() {
@@ -223,7 +340,30 @@ def product_comparison():
     </script>
     """
 
-    return f"{box_styles} {js_script} {form}"
+    return f"{header} {navigation} {form} {js_script}"
+
+@app.route('/setup-database', methods=['GET'])
+def setup_database():
+    """Route to initialize database with tables and sample data"""
+    try:
+        initialize_database()
+        success_message = """
+        <div class="success-message">
+            <h3>Success</h3>
+            <p>Database initialized successfully with sample data!</p>
+            <p><a href="/" style="color: #4CAF50; text-decoration: underline;">Return to Home</a></p>
+        </div>
+        """
+        return f"{box_styles} {get_base_page()} {success_message}"
+    except Exception as e:
+        error_message = f"""
+        <div class="error-message">
+            <h3>Error</h3>
+            <p>Could not initialize database: {str(e)}</p>
+            <p><a href="/" style="color: #f44336; text-decoration: underline;">Return to Home</a></p>
+        </div>
+        """
+        return f"{box_styles} {get_base_page()} {error_message}"
 
 def compare_products(category, min_price, max_price):
     conn = None
@@ -266,7 +406,13 @@ def compare_products(category, min_price, max_price):
 
 def format_results(results):
     if not results:
-        return f"{box_styles}<h1>No results found.</h1>"
+        no_results = """
+        <div class="error-message">
+            <h3>No Results Found</h3>
+            <p>No products match your criteria. Please try different filter settings.</p>
+        </div>
+        """
+        return f"{box_styles} {get_base_page()} {no_results}"
 
     formatted_results = """
         <header>
@@ -283,11 +429,10 @@ def format_results(results):
                     <div id="bar3" class="bar"></div>
                 </div>
                 <ul class="nav" id ="nav">
-                    <li><a href="http://localhost/Php_program/project.php">Home</a></li> 
+                    <li><a href="/">Home</a></li> 
                     <li><a href="#">Services</a></li> 
                     <li><a href="#">About Us</a></li> 
                     <li><a href="#">Contact Us</a></li> 
-                    <li><a href="http://localhost:5000">Product Comparison</a></li>    
                 </ul>
             </div>
     """
@@ -301,7 +446,7 @@ def format_results(results):
                 <h2>{product['Name']}</h2>
                 <p>Rating: {product['Rating']}</p>
                 <p>Type: {product['Type']}</p>
-                <p>Price: {product['Price']}</p>
+                <p>Price: ${product['Price']}</p>
                 <p>Colour: {product['Colour']}</p>
             </div>
         </div>
@@ -322,4 +467,6 @@ def format_results(results):
     return f"{box_styles} {js_script} {formatted_results} {html_content}"
 
 if __name__ == '__main__':
+    # Initialize database on startup
+    initialize_database()
     app.run(debug=True, host='0.0.0.0')
