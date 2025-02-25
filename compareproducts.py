@@ -218,10 +218,10 @@ def get_base_page():
             <div id="bar3" class="bar"></div>
         </div>
         <ul class="nav" id="nav">
-            <li><a href="/">Home</a></li>
-            <li><a href="#">Services</a></li>
-            <li><a href="#">About Us</a></li>
-            <li><a href="#">Contact Us</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/project.php">Home</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/services.php">Services</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/aboutus.php">About Us</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/contactus.php">Contact Us</a></li>
         </ul>
     </div>
     """
@@ -338,10 +338,18 @@ def format_results(results):
             </div>
         </div>
         """
+        js_script = """
+        <script>
+            function onClickMenu() {
+                document.getElementById("menu").classList.toggle("icon");
+                document.getElementById("nav").classList.toggle("change");
+            }
+        </script>
+        """
         html_content += productbox
     html_content += '</div>'
 
-    return f"{box_styles} {formatted_results} {html_content}"
+    return f"{box_styles} {formatted_results} {html_content} {js_script}"
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
