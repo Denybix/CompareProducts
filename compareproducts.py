@@ -317,10 +317,10 @@ def format_results(results):
             <div id="bar3" class="bar"></div>
         </div>
         <ul class="nav" id="nav">
-            <li><a href="/">Home</a></li>
-            <li><a href="#">Services</a></li>
-            <li><a href="#">About Us</a></li>
-            <li><a href="#">Contact Us</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/project.php">Home</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/services.php">Services</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/aboutus.php">About Us</a></li>
+            <li><a href="http://scrapcraftedfinds.infinityfreeapp.com/contactus.php">Contact Us</a></li>
         </ul>
     </div>
     """
